@@ -1,0 +1,85 @@
+version: '2'
+services:
+
+
+  mongodb:
+    image: mongo:3
+
+  backend:
+    image: nginx:latest
+    ports:
+    - 80:80
+    environment:
+    - NGINX_HOST=backend
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.6.3
+    volumes:
+    - ./servers/elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    ports:
+    - 9200:9200
+    - 9300:9300
+    environment:
+      "transport.host": "0.0.0.0"
+      "http.host": "0.0.0.0"
+      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:5.6.3
+    ports:
+    - 5000:5000
+    depends_on: 
+    - elasticsearch
+    volumes:
+    - ./servers/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+    - ./servers/logstash/pipeline:/usr/share/logstash/pipeline
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+
+  kibana:
+    volumes:
+    - ./servers/kibana/config/:/usr/share/kibana/config
+    image: docker.elastic.co/kibana/kibana:5.6.3
+    ports:
+    - 5601:5601
+    depends_on:
+    - elasticsearch
+
+  rabbit:
+    image: "rabbitmq"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "Dabbing"
+      RABBITMQ_DEFAULT_USER: "rabbitmq"
+      RABBITMQ_DEFAULT_PASS: "rabbitmq"
+      RABBITMQ_DEFAULT_VHOST: "/"
+    ports:
+      - 15672:15672
+      - 5672:5672
+    volumes:
+    - "./servers/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins"
+
+  graylog:
+    image: graylog/graylog:2.3.0-1
+    environment:
+      # User: admin
+      # Password: admin
+      - GRAYLOG_PASSWORD_SECRET=MoreGruff
+      - GRAYLOG_ROOT_PASSWORD_SHA2=SomeGruffl
+      - GRAYLOG_WEB_ENDPOINT_URI=http://0.0.0.0:9000/api
+    links:
+      - mongodb:mongo
+      - elasticsearch
+    depends_on:
+      - mongodb
+      - elasticsearch
+    ports:
+      # Graylog web interface and REST API
+      - 9000:9000
+      # Syslog TCP
+      - 514:514
+      # Syslog UDP
+      - 514:514/udp
+      # GELF TCP
+      - 12201:12201
+      # GELF UDP
+      - 12201:12201/udp
