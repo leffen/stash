@@ -4,6 +4,8 @@ services:
 
   mongodb:
     image: mongo:3
+    volumes:
+      - ./servers/mongo/data:/data/db
 
   backend:
     image: nginx:latest
@@ -15,35 +17,35 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:5.6.3
     volumes:
-    - ./servers/elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - ./servers/elasticsearch/data:/usr/share/elasticsearch/data
+      - ./servers/elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
     ports:
     - 9200:9200
     - 9300:9300
     environment:
-      "transport.host": "0.0.0.0"
-      "http.host": "0.0.0.0"
-      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+      - http.host=0.0.0.0
+      - transport.host=localhost
+      - network.host=0.0.0.0
+      # Disable X-Pack security: https://www.elastic.co/guide/en/elasticsearch/reference/5.5/security-settings.html#general-security-settings
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    mem_limit: 1g
 
   logstash:
     image: docker.elastic.co/logstash/logstash:5.6.3
     ports:
-    - 5000:5000
+      - 5000:5000
     depends_on: 
-    - elasticsearch
+      - elasticsearch
     volumes:
-    - ./servers/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
-    - ./servers/logstash/pipeline:/usr/share/logstash/pipeline
+      - ./servers/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ./servers/logstash/pipeline:/usr/share/logstash/pipeline
     environment:
-      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
-
-  kibana:
-    volumes:
-    - ./servers/kibana/config/:/usr/share/kibana/config
-    image: docker.elastic.co/kibana/kibana:5.6.3
-    ports:
-    - 5601:5601
-    depends_on:
-    - elasticsearch
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
 
   rabbit:
     image: "rabbitmq"
@@ -56,7 +58,8 @@ services:
       - 15672:15672
       - 5672:5672
     volumes:
-    - "./servers/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins"
+      - "./servers/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins"
+      - "./servers/rabbitmq/mnesia:/var/lib/rabbitmq/mnesia"
 
   graylog:
     image: graylog/graylog:2.3.0-1
@@ -64,7 +67,7 @@ services:
       # User: admin
       # Password: admin
       - GRAYLOG_PASSWORD_SECRET=MoreGruff
-      - GRAYLOG_ROOT_PASSWORD_SHA2=SomeGruffl
+      - GRAYLOG_ROOT_PASSWORD_SHA2=8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
       - GRAYLOG_WEB_ENDPOINT_URI=http://0.0.0.0:9000/api
     links:
       - mongodb:mongo
@@ -72,6 +75,8 @@ services:
     depends_on:
       - mongodb
       - elasticsearch
+    volumes:
+      - ./servers/graylog/data:/usr/share/graylog/data/journal
     ports:
       # Graylog web interface and REST API
       - 9000:9000
