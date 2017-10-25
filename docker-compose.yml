@@ -32,7 +32,7 @@ services:
     image: docker.elastic.co/logstash/logstash:5.6.3
     ports:
       - 5000:5000
-      - 12201:12201
+      - 12205:12201
     depends_on: 
       - elasticsearch
     volumes:
