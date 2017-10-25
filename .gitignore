@@ -1,0 +1,2 @@
+servers/*/data
+servers/rabbitmq/mnesia
